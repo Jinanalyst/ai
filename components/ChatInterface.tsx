@@ -26,8 +26,8 @@ export default function ChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  const sendReward = async (): Promise<string | null> => {
-    if (!publicKey) return null;
+  const sendReward = async (): Promise<{ signature: string | null; error?: string }> => {
+    if (!publicKey) return { signature: null };
 
     try {
       setRewardLoading(true);
@@ -44,13 +44,15 @@ export default function ChatInterface() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send reward');
+        const errorMsg = data.error || 'Failed to send reward';
+        console.error('Reward error:', errorMsg);
+        return { signature: null, error: errorMsg };
       }
 
-      return data.signature;
-    } catch (error) {
+      return { signature: data.signature };
+    } catch (error: any) {
       console.error('Reward error:', error);
-      return null;
+      return { signature: null, error: error.message || 'Failed to send reward' };
     } finally {
       setRewardLoading(false);
     }
@@ -66,10 +68,14 @@ export default function ChatInterface() {
 
     try {
       // Send reward first (don't block chat if reward fails)
-      let rewardTx: string | null = null;
-      try {
-        rewardTx = await sendReward();
-      } catch (rewardError) {
+      let rewardTx: string | undefined = undefined;
+      let rewardError: string | undefined = undefined;
+
+      const rewardResult = await sendReward();
+      if (rewardResult.signature) {
+        rewardTx = rewardResult.signature;
+      } else if (rewardResult.error) {
+        rewardError = rewardResult.error;
         console.warn('Reward failed, continuing with chat:', rewardError);
       }
 
@@ -77,11 +83,21 @@ export default function ChatInterface() {
         id: Date.now().toString(),
         role: 'user',
         content: currentInput,
-        rewardTx: rewardTx || undefined,
+        rewardTx,
       };
 
       const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
+
+      // Show reward error as a warning if it failed
+      if (rewardError && !rewardTx) {
+        const warningMessage: Message = {
+          id: `${Date.now()}-warning`,
+          role: 'assistant',
+          content: `⚠️ Note: ${rewardError}`,
+        };
+        setMessages((prev) => [...prev, warningMessage]);
+      }
 
       // Get AI response
       const response = await fetch('/api/chat', {
@@ -92,7 +108,13 @@ export default function ChatInterface() {
         body: JSON.stringify({
           message: currentInput,
           history: updatedMessages
-            .filter((msg) => msg.role !== 'assistant' || !msg.content.startsWith('Error:'))
+            .filter((msg) => {
+              // Exclude error and warning messages from history
+              if (msg.role === 'assistant' && (msg.content.startsWith('Error:') || msg.content.startsWith('⚠️'))) {
+                return false;
+              }
+              return true;
+            })
             .map((msg) => ({
               role: msg.role,
               content: msg.content,
@@ -135,27 +157,36 @@ export default function ChatInterface() {
           </div>
         )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((message) => {
+          const isWarning = message.role === 'assistant' && message.content.startsWith('⚠️');
+          const isError = message.role === 'assistant' && message.content.startsWith('Error:');
+
+          return (
             <div
-              className={`max-w-[80%] px-4 py-2 rounded-lg ${
-                message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
-              }`}
+              key={message.id}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-              {message.rewardTx && (
-                <p className="text-xs mt-1 opacity-75">
-                  Reward: {message.rewardTx.slice(0, 8)}...
-                </p>
-              )}
+              <div
+                className={`max-w-[80%] px-4 py-2 rounded-lg ${
+                  message.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : isError
+                    ? 'bg-red-50 text-red-900 border border-red-200'
+                    : isWarning
+                    ? 'bg-yellow-50 text-yellow-900 border border-yellow-200'
+                    : 'bg-white text-gray-900 border border-gray-200'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                {message.rewardTx && (
+                  <p className="text-xs mt-1 opacity-75">
+                    ✓ Reward: {message.rewardTx.slice(0, 8)}...
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="flex justify-start">

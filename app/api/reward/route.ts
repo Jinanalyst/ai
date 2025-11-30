@@ -27,8 +27,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Connect to Solana Devnet
-    const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+    // Connect to Solana network (from environment variable)
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+    const rpcUrl = network === 'mainnet-beta'
+      ? 'https://api.mainnet-beta.solana.com'
+      : network === 'testnet'
+      ? 'https://api.testnet.solana.com'
+      : 'https://api.devnet.solana.com';
+    const connection = new Connection(rpcUrl, 'confirmed');
 
     // Create keypair from private key
     let faucetKeypair: Keypair;
@@ -54,9 +60,13 @@ export async function POST(request: NextRequest) {
     const faucetBalanceSOL = faucetBalance / LAMPORTS_PER_SOL;
 
     if (faucetBalanceSOL < MIN_FAUCET_SOL_BALANCE) {
+      console.error('Faucet SOL balance too low:', {
+        current: faucetBalanceSOL,
+        minimum: MIN_FAUCET_SOL_BALANCE
+      });
       return NextResponse.json(
-        { error: `Faucet SOL balance too low. Current: ${faucetBalanceSOL.toFixed(4)} SOL. Minimum required: ${MIN_FAUCET_SOL_BALANCE} SOL for transaction fees` },
-        { status: 400 }
+        { error: 'Reward system temporarily unavailable. Please try again later.' },
+        { status: 503 }
       );
     }
 
@@ -76,9 +86,13 @@ export async function POST(request: NextRequest) {
     const faucetTokenAmount = Number(faucetTokenBalance.amount);
 
     if (faucetTokenAmount < REWARD_AMOUNT) {
+      console.error('Faucet token balance too low:', {
+        current: faucetTokenAmount,
+        required: REWARD_AMOUNT
+      });
       return NextResponse.json(
-        { error: `Faucet token balance too low. Current: ${faucetTokenAmount} tokens. Required: ${REWARD_AMOUNT} tokens` },
-        { status: 400 }
+        { error: 'Reward tokens temporarily unavailable. Please try again later.' },
+        { status: 503 }
       );
     }
 
@@ -137,9 +151,25 @@ export async function POST(request: NextRequest) {
       tokenMint: TOKEN_MINT_ADDRESS,
     });
   } catch (error: any) {
-    console.error('Reward API error:', error);
+    console.error('Reward API error:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+
+    // Provide user-friendly error messages
+    let userMessage = 'Failed to send reward. Please try again.';
+
+    if (error.message?.includes('Blockhash not found')) {
+      userMessage = 'Network congestion detected. Please try again in a moment.';
+    } else if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+      userMessage = 'Too many requests. Please wait a moment and try again.';
+    } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+      userMessage = 'Network timeout. Please check your connection and try again.';
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Failed to send reward' },
+      { error: userMessage, details: error.message },
       { status: 500 }
     );
   }

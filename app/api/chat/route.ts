@@ -54,16 +54,37 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Hugging Face API error:', errorData);
+      console.error('Hugging Face API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
       let errorMessage = 'Failed to get AI response';
+      let userMessage = errorMessage;
+
       try {
         const parsedError = JSON.parse(errorData);
         errorMessage = parsedError.error || parsedError.message || errorMessage;
+
+        // Provide user-friendly messages for common errors
+        if (response.status === 503) {
+          userMessage = 'AI model is loading, please try again in a few moments';
+        } else if (response.status === 401) {
+          userMessage = 'API authentication failed. Please check your API key configuration.';
+        } else if (response.status === 429) {
+          userMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+        } else if (errorMessage.includes('estimated_time')) {
+          userMessage = 'AI model is warming up, please wait a moment and try again';
+        } else {
+          userMessage = errorMessage;
+        }
       } catch {
         errorMessage = errorData || errorMessage;
+        userMessage = errorMessage;
       }
+
       return NextResponse.json(
-        { error: errorMessage },
+        { error: userMessage, details: errorMessage },
         { status: response.status || 500 }
       );
     }

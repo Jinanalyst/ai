@@ -10,7 +10,14 @@ import { clusterApiUrl } from '@solana/web3.js';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const network = WalletAdapterNetwork.Devnet;
+  const network = useMemo(() => {
+    const envNetwork = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+    return envNetwork === 'mainnet-beta'
+      ? WalletAdapterNetwork.Mainnet
+      : envNetwork === 'testnet'
+      ? WalletAdapterNetwork.Testnet
+      : WalletAdapterNetwork.Devnet;
+  }, []);
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
   const wallets = useMemo(

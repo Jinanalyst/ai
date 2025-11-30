@@ -27,26 +27,32 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Create a `.env.local` file in the root directory:
+Copy `.env.example` to `.env.local` and fill in your API keys:
 
-```env
-NEXT_PUBLIC_SOLANA_NETWORK=testnet
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-FAUCET_PRIVATE_KEY=your_testnet_private_key_here
+```bash
+cp .env.example .env.local
 ```
 
-### 3. Generate a Testnet Faucet Keypair
+Then edit `.env.local` with your actual values:
 
-You need a Solana testnet wallet with some SOL to act as the faucet. You can:
+```env
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+FAUCET_PRIVATE_KEY=your_devnet_private_key_here
+```
+
+### 3. Generate a Devnet Faucet Keypair
+
+You need a Solana devnet wallet with some SOL to act as the faucet. You can:
 
 **Option A: Use Solana CLI**
 ```bash
 # Install Solana CLI if you haven't already
 # Then generate a new keypair
-solana-keygen new --outfile ./testnet-keypair.json
+solana-keygen new --outfile ./devnet-keypair.json
 
-# Get testnet SOL from a faucet
-solana airdrop 1 <your-public-key> --url https://api.testnet.solana.com
+# Get devnet SOL from a faucet
+solana airdrop 1 <your-public-key> --url https://api.devnet.solana.com
 
 # Convert private key to base58 format
 # The private key array from the JSON file needs to be converted
@@ -54,7 +60,7 @@ solana airdrop 1 <your-public-key> --url https://api.testnet.solana.com
 
 **Option B: Use an online tool**
 - Generate a keypair using Solana's web tools
-- Fund it with testnet SOL from https://faucet.solana.com
+- Fund it with devnet SOL from https://faucet.solana.com
 - Convert the private key array to base58 format
 
 **Private Key Format:**
@@ -72,10 +78,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
-1. **Connect Wallet**: Click "Connect Solana Wallet" and select your wallet (Phantom, Solflare, or Backpack)
-2. **Switch to Testnet**: Make sure your wallet is connected to Solana Testnet
+1. **Connect Wallet**: Click "Connect Solana Wallet" and select your wallet (Phantom or Solflare)
+2. **Switch to Devnet**: Make sure your wallet is connected to Solana Devnet
 3. **Start Chatting**: Type a message and send it
-4. **Earn Tokens**: You'll automatically receive CHAT token for each message
+4. **Earn Tokens**: You'll automatically receive 1 CHAT token for each message
 
 ## Project Structure
 
@@ -115,7 +121,7 @@ Handles AI chat requests using Hugging Face Inference API.
 ```
 
 ### `/api/reward`
-Sends SOL rewards to user wallets.
+Sends CHAT token rewards to user wallets.
 
 **Request:**
 ```json
@@ -129,26 +135,28 @@ Sends SOL rewards to user wallets.
 {
   "success": true,
   "signature": "transaction_signature",
-  "amount": 0.001
+  "amount": 1,
+  "tokenMint": "GDTCMCQ8Zs5vnVPPDjSYciZJ67YcrCbnP31WGuUvL8Kj"
 }
 ```
 
 ## Important Notes
 
-- ⚠️ This app uses **Solana Testnet only** - no real money is involved
-- 💧 Make sure your faucet wallet has enough SOL to distribute rewards
+- ⚠️ This app uses **Solana Devnet only** - no real money is involved
+- 💧 Make sure your faucet wallet has enough SOL (minimum 0.01 SOL for transaction fees) and CHAT tokens (1 token per message)
 - 🔒 Never commit your `.env.local` file or private keys to version control
 - 🧪 This is a demo/MVP - production use would require additional security measures
 
 ## Troubleshooting
 
 **Wallet won't connect:**
-- Make sure you have a Solana wallet extension installed (Phantom, Solflare, or Backpack)
-- Ensure your wallet is set to Testnet network
+- Make sure you have a Solana wallet extension installed (Phantom or Solflare)
+- Ensure your wallet is set to Devnet network
 
 **Rewards not working:**
 - Check that `FAUCET_PRIVATE_KEY` is correctly set in `.env.local`
-- Verify the faucet wallet has sufficient balance (minimum 0.01 SOL)
+- Verify the faucet wallet has sufficient SOL balance (minimum 0.01 SOL for transaction fees)
+- Verify the faucet wallet has CHAT tokens to distribute (1 token per message)
 - Check the browser console and server logs for errors
 
 **AI not responding:**
