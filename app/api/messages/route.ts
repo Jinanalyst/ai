@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +14,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const messagesKey = `messages:${walletAddress}:${sessionId}`;
-    const messages = await kv.get(messagesKey) || [];
+    const { data: messages, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('wallet_address', walletAddress)
+      .order('created_at', { ascending: true });
 
-    return NextResponse.json({ messages });
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch messages' },
+        { status: 500 }
+      );
+    }
+
+    // Transform to match expected format
+    const formattedMessages = messages?.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      rewardTx: msg.reward_tx,
+    })) || [];
+
+    return NextResponse.json({ messages: formattedMessages });
   } catch (error) {
     console.error('Error fetching messages:', error);
     return NextResponse.json(
@@ -39,8 +59,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const messagesKey = `messages:${walletAddress}:${sessionId}`;
-    await kv.set(messagesKey, messages);
+    // Delete existing messages for this session
+    await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('wallet_address', walletAddress);
+
+    // Insert new messages
+    if (messages.length > 0) {
+      const messagesToInsert = messages.map((msg: any) => ({
+        id: msg.id,
+        session_id: sessionId,
+        wallet_address: walletAddress,
+        role: msg.role,
+        content: msg.content,
+        reward_tx: msg.rewardTx || null,
+      }));
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert(messagesToInsert);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json(
+          { error: 'Failed to save messages' },
+          { status: 500 }
+        );
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
