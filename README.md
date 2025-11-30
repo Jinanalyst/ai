@@ -5,7 +5,7 @@ A Next.js web application where users can chat with an AI assistant and automati
 ## Features
 
 - 🔗 **Wallet Integration**: Connect with Phantom, Solflare, or Backpack wallets
-- 💬 **AI Chat**: Chat with an AI assistant powered by Groq
+- 💬 **AI Chat**: Chat with an AI assistant powered by Hugging Face
 - 💰 **Token Rewards**: Earn CHAT token for each message you send
 - 🎨 **Clean UI**: Modern, responsive design with TailwindCSS
 
@@ -15,7 +15,7 @@ A Next.js web application where users can chat with an AI assistant and automati
 - **Styling**: TailwindCSS
 - **Blockchain**: Solana Web3.js
 - **Wallet**: Solana Wallet Adapter
-- **AI**: Groq API
+- **AI**: Hugging Face Inference API
 
 ## Setup Instructions
 
@@ -31,7 +31,7 @@ Create a `.env.local` file in the root directory:
 
 ```env
 NEXT_PUBLIC_SOLANA_NETWORK=testnet
-GROQ_API_KEY=your_groq_api_key_here
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
 FAUCET_PRIVATE_KEY=your_testnet_private_key_here
 ```
 
@@ -97,7 +97,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## API Routes
 
 ### `/api/chat`
-Handles AI chat requests using Groq API.
+Handles AI chat requests using Hugging Face Inference API.
 
 **Request:**
 ```json
@@ -152,8 +152,9 @@ Sends SOL rewards to user wallets.
 - Check the browser console and server logs for errors
 
 **AI not responding:**
-- Verify `GROQ_API_KEY` is set correctly in `.env.local`
-- Check your Groq API quota/limits
+- Verify `HUGGINGFACE_API_KEY` is set correctly in `.env.local`
+- Check your Hugging Face API quota/limits
+- The model may be loading (first request can take time)
 
 ## License
 

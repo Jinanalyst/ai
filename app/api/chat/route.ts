@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,44 +14,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!GROQ_API_KEY) {
+    if (!HUGGINGFACE_API_KEY) {
       return NextResponse.json(
         { error: 'AI API key not configured' },
         { status: 500 }
       );
     }
 
-    const response = await fetch(GROQ_API_URL, {
+    // Build conversation prompt for Hugging Face
+    let prompt = 'You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.\n\n';
+    
+    // Add history
+    history.forEach((msg: { role: string; content: string }) => {
+      if (msg.role === 'user') {
+        prompt += `User: ${msg.content}\n`;
+      } else if (msg.role === 'assistant') {
+        prompt += `Assistant: ${msg.content}\n`;
+      }
+    });
+    
+    // Add current message
+    prompt += `User: ${message}\nAssistant:`;
+
+    const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.',
-          },
-          ...history,
-          {
-            role: 'user',
-            content: message,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 500,
+          temperature: 0.7,
+          return_full_text: false,
+        },
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Groq API error:', errorData);
+      console.error('Hugging Face API error:', errorData);
       let errorMessage = 'Failed to get AI response';
       try {
         const parsedError = JSON.parse(errorData);
-        errorMessage = parsedError.error?.message || parsedError.error || errorMessage;
+        errorMessage = parsedError.error || parsedError.message || errorMessage;
       } catch {
         errorMessage = errorData || errorMessage;
       }
@@ -62,7 +69,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'No response received';
+    
+    // Handle Hugging Face response format
+    let reply = 'No response received';
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      reply = data[0].generated_text.trim();
+    } else if (data.generated_text) {
+      reply = data.generated_text.trim();
+    } else if (typeof data === 'string') {
+      reply = data.trim();
+    }
 
     return NextResponse.json({ reply });
   } catch (error) {
