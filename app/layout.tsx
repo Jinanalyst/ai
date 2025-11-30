@@ -6,8 +6,8 @@ import { WalletProvider } from '@/components/WalletProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Chatai - Earn SOL While You Chat',
-  description: 'Chat with AI and earn CHAT token',
+  title: 'Chat - A Simple Space for Conversation',
+  description: 'A minimal, human-friendly chat interface',
 };
 
 export default function RootLayout({

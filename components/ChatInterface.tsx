@@ -127,11 +127,11 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-[600px]">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+    <div className="flex flex-col h-[500px]">
+      <div className="flex-1 overflow-y-auto mb-6 space-y-3 px-2">
         {messages.length === 0 && !loading && (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <p>Start a conversation! You&apos;ll earn CHAT token for each message.</p>
+          <div className="flex items-center justify-center h-full text-stone-400">
+            <p className="text-sm">Say hello to start chatting</p>
           </div>
         )}
 
@@ -141,16 +141,16 @@ export default function ChatInterface() {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] px-4 py-2 rounded-lg ${
+              className={`max-w-[75%] px-4 py-3 rounded-xl ${
                 message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
+                  ? 'bg-stone-800 text-stone-50'
+                  : 'bg-stone-100 text-stone-800'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
               {message.rewardTx && (
-                <p className="text-xs mt-1 opacity-75">
-                  Reward: {message.rewardTx.slice(0, 8)}...
+                <p className="text-xs mt-2 opacity-60">
+                  Confirmed
                 </p>
               )}
             </div>
@@ -159,49 +159,35 @@ export default function ChatInterface() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
-              <p className="text-sm animate-pulse">AI is thinking...</p>
+            <div className="bg-stone-100 text-stone-700 px-4 py-3 rounded-xl">
+              <p className="text-sm">Typing...</p>
             </div>
           </div>
         )}
 
         {rewardLoading && (
           <div className="flex justify-center">
-            <p className="text-xs text-gray-500">Sending reward...</p>
+            <p className="text-xs text-stone-400">Processing...</p>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="flex gap-2">
+      <form onSubmit={sendMessage} className="flex gap-3">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
+          placeholder="Write a message..."
           disabled={loading || rewardLoading}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="flex-1 px-4 py-3 border border-stone-200 rounded-xl focus:outline-none focus:border-stone-400 disabled:bg-stone-50 disabled:text-stone-400 transition-colors text-sm"
         />
         <button
           type="submit"
           disabled={loading || rewardLoading || !input.trim()}
-          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="px-5 py-3 bg-stone-800 text-stone-50 rounded-xl hover:bg-stone-700 disabled:bg-stone-300 disabled:cursor-not-allowed transition-all text-sm font-medium"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
           Send
         </button>
       </form>
