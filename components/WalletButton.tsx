@@ -1,41 +1,14 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useConnection } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { useEffect, useState } from 'react';
+import NetworkSelector from './NetworkSelector';
+import { useNetwork } from './WalletProvider';
 
 export default function WalletButton() {
   const { connected, publicKey, disconnect } = useWallet();
-  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchBalance = async () => {
-    if (!publicKey || !connection) return;
-    try {
-      setLoading(true);
-      const balance = await connection.getBalance(publicKey);
-      setBalance(balance / LAMPORTS_PER_SOL);
-    } catch (error) {
-      console.error('Error fetching balance:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (connected && publicKey) {
-      fetchBalance();
-      const interval = setInterval(fetchBalance, 5000);
-      return () => clearInterval(interval);
-    } else {
-      setBalance(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, publicKey, connection]);
+  const { network, setNetwork } = useNetwork();
 
   const handleConnect = () => {
     setVisible(true);
@@ -47,38 +20,34 @@ export default function WalletButton() {
 
   if (connected && publicKey) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600">Wallet Address</p>
-            <p className="text-sm font-mono text-gray-900 break-all">
-              {publicKey.toString()}
-            </p>
-          </div>
-          <button
-            onClick={handleDisconnect}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-          >
-            Disconnect
-          </button>
+      <div className="flex items-center gap-3">
+        <NetworkSelector network={network} onNetworkChange={setNetwork} />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg border border-gray-200">
+          <div className="w-2 h-2 bg-green-500 rounded-full" />
+          <span className="text-sm font-mono text-gray-700">
+            {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
+          </span>
         </div>
-        <div>
-          <p className="text-sm text-gray-600">SOL Balance</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {loading ? 'Loading...' : balance !== null ? `${balance.toFixed(4)} SOL` : '—'}
-          </p>
-        </div>
+        <button
+          onClick={handleDisconnect}
+          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          Disconnect
+        </button>
       </div>
     );
   }
 
   return (
-    <button
-      onClick={handleConnect}
-      className="w-full px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-    >
-      Connect Solana Wallet
-    </button>
+    <div className="flex items-center gap-3">
+      <NetworkSelector network={network} onNetworkChange={setNetwork} />
+      <button
+        onClick={handleConnect}
+        className="px-4 py-1.5 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors font-medium"
+      >
+        Connect Wallet
+      </button>
+    </div>
   );
 }
 

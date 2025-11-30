@@ -127,11 +127,14 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-[600px]">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto space-y-6 px-4">
         {messages.length === 0 && !loading && (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <p>Start a conversation! You&apos;ll earn CHAT token for each message.</p>
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center max-w-md">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Start a conversation</h2>
+              <p className="text-gray-500">Ask me anything and earn CHAT tokens for each message you send.</p>
+            </div>
           </div>
         )}
 
@@ -140,71 +143,92 @@ export default function ChatInterface() {
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div
-              className={`max-w-[80%] px-4 py-2 rounded-lg ${
-                message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
-              }`}
-            >
-              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-              {message.rewardTx && (
-                <p className="text-xs mt-1 opacity-75">
-                  Reward: {message.rewardTx.slice(0, 8)}...
-                </p>
-              )}
+            <div className={`flex gap-3 max-w-3xl ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                message.role === 'user' ? 'bg-gray-900' : 'bg-green-500'
+              }`}>
+                {message.role === 'user' ? (
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                    <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                {message.rewardTx && (
+                  <div className="mt-2 flex items-center gap-1 text-xs text-green-600">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Reward sent: {message.rewardTx.slice(0, 8)}...</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
-              <p className="text-sm animate-pulse">AI is thinking...</p>
+            <div className="flex gap-3 max-w-3xl">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                </svg>
+              </div>
+              <div className="flex gap-1 pt-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
             </div>
           </div>
         )}
 
         {rewardLoading && (
           <div className="flex justify-center">
-            <p className="text-xs text-gray-500">Sending reward...</p>
+            <p className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">Sending reward...</p>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          disabled={loading || rewardLoading}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-        />
-        <button
-          type="submit"
-          disabled={loading || rewardLoading || !input.trim()}
-          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-          Send
-        </button>
-      </form>
+      <div className="border-t border-gray-200 bg-white p-4">
+        <form onSubmit={sendMessage} className="max-w-3xl mx-auto">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Message ChatAI..."
+                disabled={loading || rewardLoading}
+                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-400 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={loading || rewardLoading || !input.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
