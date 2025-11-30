@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") || "";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 interface ChatRequest {
