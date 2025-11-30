@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { ChatSession } from './Sidebar';
 
 interface Message {
   id: string;
@@ -10,7 +11,12 @@ interface Message {
   rewardTx?: string;
 }
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  sessionId: string;
+  onSessionUpdate?: () => void;
+}
+
+export default function ChatInterface({ sessionId, onSessionUpdate }: ChatInterfaceProps) {
   const { publicKey } = useWallet();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -25,6 +31,120 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load messages from Vercel KV when sessionId changes
+  useEffect(() => {
+    if (!publicKey) return;
+
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(
+          `/api/messages?walletAddress=${publicKey.toString()}&sessionId=${sessionId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data.messages || []);
+        } else {
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        setMessages([]);
+      }
+    };
+
+    loadMessages();
+  }, [sessionId, publicKey]);
+
+  // Save messages to Vercel KV whenever they change
+  useEffect(() => {
+    if (!publicKey || messages.length === 0) return;
+
+    const saveMessages = async () => {
+      try {
+        await fetch('/api/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            walletAddress: publicKey.toString(),
+            sessionId,
+            messages,
+          }),
+        });
+
+        // Update session metadata
+        await updateSessionMetadata();
+      } catch (error) {
+        console.error('Error saving messages:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(saveMessages, 500);
+    return () => clearTimeout(timeoutId);
+  }, [messages, publicKey, sessionId]);
+
+  const updateSessionMetadata = async () => {
+    if (!publicKey || messages.length === 0) return;
+
+    try {
+      // Get existing sessions
+      const response = await fetch(
+        `/api/sessions?walletAddress=${publicKey.toString()}`
+      );
+
+      const data = await response.json();
+      const sessions: ChatSession[] = data.sessions || [];
+
+      // Generate title from first user message
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      const title = firstUserMessage
+        ? firstUserMessage.content.slice(0, 40) + (firstUserMessage.content.length > 40 ? '...' : '')
+        : 'New Chat';
+
+      const existingIndex = sessions.findIndex(s => s.id === sessionId);
+
+      if (existingIndex >= 0) {
+        // Update existing session
+        sessions[existingIndex] = {
+          id: sessionId,
+          title,
+          timestamp: Date.now(),
+          messageCount: messages.length,
+        };
+      } else {
+        // Add new session
+        sessions.push({
+          id: sessionId,
+          title,
+          timestamp: Date.now(),
+          messageCount: messages.length,
+        });
+      }
+
+      // Save updated sessions
+      await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: publicKey.toString(),
+          sessions,
+        }),
+      });
+
+      // Notify parent component
+      if (onSessionUpdate) {
+        onSessionUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating session metadata:', error);
+    }
+  };
 
   const sendReward = async (): Promise<string | null> => {
     if (!publicKey) return null;

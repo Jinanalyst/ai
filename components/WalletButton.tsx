@@ -48,23 +48,23 @@ export default function WalletButton() {
   if (connected && publicKey) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600">Wallet Address</p>
-            <p className="text-sm font-mono text-gray-900 break-all">
-              {publicKey.toString()}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-stone-500 mb-1">Wallet Address</p>
+            <p className="text-xs font-mono text-stone-800 break-all">
+              {publicKey.toString().slice(0, 8)}...{publicKey.toString().slice(-8)}
             </p>
           </div>
           <button
             onClick={handleDisconnect}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            className="px-4 py-2 bg-stone-200 text-stone-700 rounded-lg hover:bg-stone-300 transition-colors text-sm"
           >
             Disconnect
           </button>
         </div>
         <div>
-          <p className="text-sm text-gray-600">SOL Balance</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xs text-stone-500 mb-1">Balance</p>
+          <p className="text-lg font-light text-stone-800">
             {loading ? 'Loading...' : balance !== null ? `${balance.toFixed(4)} SOL` : '—'}
           </p>
         </div>
@@ -75,9 +75,9 @@ export default function WalletButton() {
   return (
     <button
       onClick={handleConnect}
-      className="w-full px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+      className="w-full px-6 py-3 bg-stone-800 text-stone-50 rounded-xl hover:bg-stone-700 transition-all text-sm font-medium"
     >
-      Connect Solana Wallet
+      Connect Wallet
     </button>
   );
 }
