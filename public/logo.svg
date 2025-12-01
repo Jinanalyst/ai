@@ -1,17 +1,22 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Speech bubble -->
-  <path d="M12 8C12 5.79086 13.7909 4 16 4H44C46.2091 4 48 5.79086 48 8V32C48 34.2091 46.2091 36 44 36H28L16 48V36C13.7909 36 12 34.2091 12 32V8Z" fill="#B794F6" stroke="#6B46C1" stroke-width="2"/>
-  <!-- Robot head -->
-  <ellipse cx="30" cy="22" rx="8" ry="10" fill="#93C5FD" stroke="#6B46C1" stroke-width="2"/>
-  <!-- Robot ears -->
-  <ellipse cx="20" cy="20" rx="2" ry="3" fill="#6B46C1"/>
-  <ellipse cx="40" cy="20" rx="2" ry="3" fill="#6B46C1"/>
-  <!-- Robot antenna -->
-  <line x1="30" y1="12" x2="30" y2="8" stroke="#6B46C1" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="30" cy="7" r="1.5" fill="#6B46C1"/>
-  <!-- Robot eyes -->
-  <circle cx="27" cy="20" r="1.5" fill="#6B46C1"/>
-  <circle cx="33" cy="20" r="1.5" fill="#6B46C1"/>
+  <!-- Speech bubble background -->
+  <rect x="6" y="8" width="48" height="32" rx="8" ry="8" fill="#B794F6" stroke="#2D1B69" stroke-width="3"/>
+  <!-- Speech bubble tail -->
+  <path d="M16 40L10 48L20 40Z" fill="#2D1B69"/>
+  <!-- Robot head background -->
+  <rect x="16" y="14" width="32" height="24" rx="6" ry="6" fill="#93C5FD" stroke="#2D1B69" stroke-width="2.5"/>
+  <!-- Robot left ear -->
+  <circle cx="14" cy="20" r="4" fill="#2D1B69"/>
+  <!-- Robot right ear -->
+  <circle cx="50" cy="20" r="4" fill="#2D1B69"/>
+  <!-- Robot antenna base -->
+  <line x1="32" y1="14" x2="32" y2="6" stroke="#2D1B69" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Robot antenna ball -->
+  <circle cx="32" cy="5" r="2" fill="#2D1B69"/>
+  <!-- Robot left eye -->
+  <circle cx="24" cy="22" r="2.5" fill="#2D1B69"/>
+  <!-- Robot right eye -->
+  <circle cx="40" cy="22" r="2.5" fill="#2D1B69"/>
   <!-- Robot mouth -->
-  <path d="M26 25Q30 27 34 25" stroke="#6B46C1" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M23 28Q32 31 41 28" stroke="#2D1B69" stroke-width="2" stroke-linecap="round" fill="none"/>
 </svg>
