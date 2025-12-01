@@ -4,16 +4,27 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import WalletButton from '@/components/WalletButton';
+import ChatInterface from '@/components/ChatInterface';
 
-export default function Home() {
+export default function AIPage() {
   const { connected } = useWallet();
   const router = useRouter();
 
   useEffect(() => {
-    if (connected) {
-      router.push('/ai');
+    if (!connected) {
+      router.push('/');
     }
   }, [connected, router]);
+
+  if (!connected) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to home page...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -23,7 +34,7 @@ export default function Home() {
             <img src="/logo.svg" alt="Chatai Logo" className="w-12 h-12" />
             <h1 className="text-4xl font-bold text-gray-900">Chatai</h1>
           </div>
-          <p className="text-sm text-blue-600 font-semibold mb-1">chatai.helpeople.kr</p>
+          <p className="text-sm text-blue-600 font-semibold mb-1">chatai.helpeople.kr/ai</p>
           <p className="text-gray-600">Chat with AI and earn CHAT token</p>
         </div>
 
@@ -32,14 +43,9 @@ export default function Home() {
             <WalletButton />
           </div>
 
-          <div className="flex items-center justify-center h-[600px] text-gray-500">
-            <div className="text-center">
-              <p className="mb-4">Please connect your Solana wallet to start chatting and earning tokens</p>
-            </div>
-          </div>
+          <ChatInterface />
         </div>
       </div>
     </main>
   );
 }
-
