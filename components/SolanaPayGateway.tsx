@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import QRCode from 'qrcode';
 
@@ -9,11 +10,23 @@ const PAYMENT_ADDRESS = 'DXMH7DLXRMHqpwSESmJ918uFhFQSxzvKEb7CA1ZDj1a2';
 const PAYMENT_AMOUNT = 0.3; // SOL
 
 export function SolanaPayGateway() {
+  const router = useRouter();
   const [qrCode, setQrCode] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string>('');
   const [transactionSignature, setTransactionSignature] = useState<string>('');
+
+  // Redirect to chat page after successful payment
+  useEffect(() => {
+    if (success) {
+      const redirectTimer = setTimeout(() => {
+        router.push('/');
+      }, 3000); // Show success message for 3 seconds before redirecting
+
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [success, router]);
 
   const generatePaymentQR = async () => {
     try {
@@ -146,6 +159,9 @@ export function SolanaPayGateway() {
           </p>
           <p className="text-sm text-green-600 mt-2">
             You can now enjoy premium features and earn CHAT tokens while chatting with AI!
+          </p>
+          <p className="text-xs text-green-600 mt-3 animate-pulse">
+            Redirecting to chat page in 3 seconds...
           </p>
         </div>
       )}
