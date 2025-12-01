@@ -128,7 +128,7 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-[600px]">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+      <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-warm-50 rounded-lg">
         {messages.length === 0 && !loading && (
           <div className="flex items-center justify-center h-full text-gray-500">
             <p>Start a conversation! You&apos;ll earn CHAT token for each message.</p>
@@ -143,8 +143,8 @@ export default function ChatInterface() {
             <div
               className={`max-w-[80%] px-4 py-2 rounded-lg ${
                 message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-900 border border-gray-200'
+                  ? 'bg-earth-600 text-white'
+                  : 'bg-white text-gray-900 border border-warm-200'
               }`}
             >
               <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
@@ -159,7 +159,7 @@ export default function ChatInterface() {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
+            <div className="bg-white text-gray-900 border border-warm-200 px-4 py-2 rounded-lg">
               <p className="text-sm animate-pulse">AI is thinking...</p>
             </div>
           </div>
@@ -181,12 +181,12 @@ export default function ChatInterface() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           disabled={loading || rewardLoading}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="flex-1 px-4 py-2 border border-warm-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-earth-500 disabled:bg-warm-100"
         />
         <button
           type="submit"
           disabled={loading || rewardLoading || !input.trim()}
-          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="px-6 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 disabled:bg-warm-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
