@@ -5,6 +5,7 @@ A Next.js web application where users can chat with an AI assistant and automati
 ## Features
 
 - 🔗 **Wallet Integration**: Connect with Phantom, Solflare, or Backpack wallets
+- 💳 **Payment System**: One-time payment to access the platform
 - 💬 **AI Chat**: Chat with an AI assistant powered by Hugging Face
 - 💰 **Token Rewards**: Earn CHAT token for each message you send
 - 🎨 **Clean UI**: Modern, responsive design with TailwindCSS
@@ -27,12 +28,18 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Create a `.env.local` file in the root directory:
+Create a `.env.local` file in the root directory (see `.env.example` for reference):
 
 ```env
-NEXT_PUBLIC_SOLANA_NETWORK=testnet
+# Hugging Face API
 HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+
+# Faucet wallet for distributing CHAT tokens
 FAUCET_PRIVATE_KEY=your_testnet_private_key_here
+
+# Platform wallet for receiving payments
+NEXT_PUBLIC_PLATFORM_WALLET=your_platform_wallet_address_here
+PLATFORM_WALLET_ADDRESS=your_platform_wallet_address_here
 ```
 
 ### 3. Generate a Testnet Faucet Keypair
@@ -72,20 +79,27 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
-1. **Connect Wallet**: Click "Connect Solana Wallet" and select your wallet (Phantom, Solflare, or Backpack)
-2. **Switch to Testnet**: Make sure your wallet is connected to Solana Testnet
-3. **Start Chatting**: Type a message and send it
-4. **Earn Tokens**: You'll automatically receive CHAT token for each message
+1. **Landing Page**: Visit chatai.helpeople.kr (or localhost:3000)
+2. **Connect Wallet**: Click "Connect Solana Wallet" and select your wallet (Phantom, Solflare, or Backpack)
+3. **Navigate to Chat**: Click "Start Chatting" button after connecting
+4. **Make Payment**: Pay 0.1 SOL (one-time) to access the AI chat platform
+5. **Start Chatting**: Type messages and chat with the AI
+6. **Earn Tokens**: You'll automatically receive CHAT token for each message sent
+
+**Note**: Make sure your wallet is connected to Solana Devnet and has at least 0.11 SOL (0.1 for payment + ~0.01 for transaction fees).
 
 ## Project Structure
 
 ```
 ├── app/
+│   ├── ai/
+│   │   └── page.tsx       # AI chat page with payment gate
 │   ├── api/
 │   │   ├── chat/          # AI chat API route
-│   │   └── reward/        # Solana reward API route
+│   │   ├── payment/       # Payment verification API route
+│   │   └── reward/        # CHAT token reward API route
 │   ├── layout.tsx         # Root layout with wallet provider
-│   ├── page.tsx           # Main page
+│   ├── page.tsx           # Landing page
 │   └── globals.css        # Global styles
 ├── components/
 │   ├── WalletProvider.tsx # Solana wallet context provider
@@ -95,6 +109,44 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 
 ## API Routes
+
+### `/api/payment` (GET)
+Checks if a wallet has made payment to access the platform.
+
+**Request:**
+```
+GET /api/payment?wallet=<wallet_address>
+```
+
+**Response:**
+```json
+{
+  "hasPaid": true,
+  "message": "Payment verified"
+}
+```
+
+### `/api/payment` (POST)
+Verifies a payment transaction.
+
+**Request:**
+```json
+{
+  "signature": "transaction_signature",
+  "walletAddress": "user_wallet_address"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Payment verified successfully",
+  "walletAddress": "user_wallet_address",
+  "amount": 0.1,
+  "signature": "transaction_signature"
+}
+```
 
 ### `/api/chat`
 Handles AI chat requests using Hugging Face Inference API.
@@ -115,7 +167,7 @@ Handles AI chat requests using Hugging Face Inference API.
 ```
 
 ### `/api/reward`
-Sends SOL rewards to user wallets.
+Sends CHAT token rewards to user wallets.
 
 **Request:**
 ```json

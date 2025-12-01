@@ -2,18 +2,15 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import WalletButton from '@/components/WalletButton';
 
 export default function Home() {
   const { connected } = useWallet();
   const router = useRouter();
 
-  useEffect(() => {
-    if (connected) {
-      router.push('/ai');
-    }
-  }, [connected, router]);
+  const handleStartChat = () => {
+    router.push('/ai');
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -34,7 +31,20 @@ export default function Home() {
 
           <div className="flex items-center justify-center h-[600px] text-gray-500">
             <div className="text-center">
-              <p className="mb-4">Please connect your Solana wallet to start chatting and earning tokens</p>
+              {!connected ? (
+                <p className="mb-4">Please connect your Solana wallet to start chatting and earning tokens</p>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-700 text-lg">Wallet connected successfully!</p>
+                  <p className="text-gray-600">Ready to start chatting with AI and earning CHAT tokens</p>
+                  <button
+                    onClick={handleStartChat}
+                    className="mt-6 px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-lg"
+                  >
+                    Start Chatting →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
