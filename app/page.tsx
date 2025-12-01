@@ -15,6 +15,7 @@ export default function Home() {
             <img src="/logo.svg" alt="Chatai Logo" className="w-12 h-12" />
             <h1 className="text-4xl font-bold text-gray-900">Chatai</h1>
           </div>
+          <p className="text-sm text-blue-600 font-semibold mb-1">chatai.helpeople.kr</p>
           <p className="text-gray-600">Chat with AI and earn CHAT token</p>
         </div>
 

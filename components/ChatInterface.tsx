@@ -128,6 +128,23 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-[600px]">
+      <div className="mb-4 pb-3 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-blue-600">chatai.helpeople.kr</span>
+            <span className="text-sm text-gray-400">/</span>
+            <span className="text-sm font-semibold text-indigo-600">ai</span>
+          </div>
+          {publicKey && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Wallet:</span>
+              <span className="text-xs font-mono text-gray-700">
+                {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-gray-50 rounded-lg">
         {messages.length === 0 && !loading && (
           <div className="flex items-center justify-center h-full text-gray-500">
