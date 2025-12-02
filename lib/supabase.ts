@@ -112,7 +112,7 @@ export async function getUserCredits(walletAddress: string): Promise<UserCredits
 }
 
 // Decrement message credits (use a message)
-export async function useMessageCredit(walletAddress: string): Promise<boolean> {
+export async function deductMessageCredit(walletAddress: string): Promise<boolean> {
   try {
     const credits = await getUserCredits(walletAddress);
     if (!credits || credits.messages_remaining <= 0) {
@@ -130,7 +130,7 @@ export async function useMessageCredit(walletAddress: string): Promise<boolean> 
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error using message credit:', error);
+    console.error('Error deducting message credit:', error);
     throw error;
   }
 }

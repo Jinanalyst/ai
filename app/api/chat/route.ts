@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { getUserCredits, useMessageCredit } from '@/lib/supabase';
+import { getUserCredits, deductMessageCredit } from '@/lib/supabase';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
       // Deduct message credit after successful response
       try {
-        await useMessageCredit(walletAddress);
+        await deductMessageCredit(walletAddress);
       } catch (error) {
         console.error('Error deducting message credit:', error);
         // Don't fail the request if credit deduction fails, just log it
