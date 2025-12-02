@@ -8,8 +8,8 @@ export const PAYMENT_CONFIG = {
   mainnetRpc: 'https://api.mainnet-beta.solana.com',
 
   // Payment details
-  paymentAmount: 0.001, // SOL
-  minimumPaymentAmount: 0.001, // SOL
+  paymentAmount: 0.3, // SOL
+  minimumPaymentAmount: 0.3, // SOL
 
   // Faucet wallet configuration
   minimumFaucetBalance: 0.01, // Minimum SOL in faucet to process payments

@@ -13,9 +13,9 @@ import bs58 from 'bs58';
 
 // Mainnet configuration
 const MAINNET_RPC = 'https://api.mainnet-beta.solana.com';
-const MIN_PAYMENT_AMOUNT = 0.001; // Minimum SOL to send
-const PAYMENT_AMOUNT = 0.001; // Payment amount in SOL per connection
-const MIN_FAUCET_SOL_BALANCE = 0.01; // Minimum SOL balance for faucet
+const MIN_PAYMENT_AMOUNT = 0.3; // Minimum SOL to send
+const PAYMENT_AMOUNT = 0.3; // Payment amount in SOL per connection
+const MIN_FAUCET_SOL_BALANCE = 1.0; // Minimum SOL balance for faucet
 
 interface PaymentRequest {
   walletAddress: string;
