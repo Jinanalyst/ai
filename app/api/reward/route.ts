@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getOrCreateAssociatedTokenAccount, createTransferInstruction, getAccount, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { getOrCreateAssociatedTokenAccount, createTransferInstruction, getAccount, getMint, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import bs58 from 'bs58';
 
 const TOKEN_MINT_ADDRESS = 'GDTCMCQ8Zs5vnVPPDjSYciZJ67YcrCbnP31WGuUvL8Kj';
-const REWARD_AMOUNT = 1; // Number of CHAT tokens to reward per message
-const MIN_FAUCET_SOL_BALANCE = 0.01; // Minimum SOL balance for faucet to operate (for transaction fees)
+const REWARD_AMOUNT = 1; // Number of full CHAT tokens to reward per message
+const MIN_FAUCET_SOL_BALANCE = 0.05; // Minimum SOL balance for faucet to operate (increased for reliability)
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,8 +27,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Connect to Solana Devnet
-    const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+    // Connect to Solana network based on environment variable
+    const networkEnv = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+    const rpcUrl = networkEnv === 'mainnet-beta'
+      ? 'https://api.mainnet-beta.solana.com'
+      : networkEnv === 'testnet'
+      ? 'https://api.testnet.solana.com'
+      : 'https://api.devnet.solana.com';
+    const connection = new Connection(rpcUrl, 'confirmed');
 
     // Create keypair from private key
     let faucetKeypair: Keypair;
@@ -63,6 +69,13 @@ export async function POST(request: NextRequest) {
     // Get token mint public key
     const tokenMint = new PublicKey(TOKEN_MINT_ADDRESS);
 
+    // Fetch mint information to get decimals
+    const mintInfo = await getMint(connection, tokenMint);
+    const tokenDecimals = mintInfo.decimals;
+
+    // Calculate actual amount to transfer (account for decimals)
+    const transferAmount = REWARD_AMOUNT * Math.pow(10, tokenDecimals);
+
     // Get or create associated token account for faucet (sender)
     const faucetTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
@@ -75,9 +88,10 @@ export async function POST(request: NextRequest) {
     const faucetTokenBalance = await getAccount(connection, faucetTokenAccount.address);
     const faucetTokenAmount = Number(faucetTokenBalance.amount);
 
-    if (faucetTokenAmount < REWARD_AMOUNT) {
+    if (faucetTokenAmount < transferAmount) {
+      const currentBalance = faucetTokenAmount / Math.pow(10, tokenDecimals);
       return NextResponse.json(
-        { error: `Faucet token balance too low. Current: ${faucetTokenAmount} tokens. Required: ${REWARD_AMOUNT} tokens` },
+        { error: `Faucet token balance too low. Current: ${currentBalance.toFixed(tokenDecimals)} tokens. Required: ${REWARD_AMOUNT} tokens` },
         { status: 400 }
       );
     }
@@ -109,7 +123,7 @@ export async function POST(request: NextRequest) {
       faucetTokenAccount.address,
       recipientTokenAccount.address,
       faucetKeypair.publicKey,
-      REWARD_AMOUNT,
+      transferAmount,
       [],
       TOKEN_PROGRAM_ID
     );
@@ -119,14 +133,14 @@ export async function POST(request: NextRequest) {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = faucetKeypair.publicKey;
 
-    // Send transaction
+    // Send transaction with increased retries for better reliability
     const signature = await sendAndConfirmTransaction(
       connection,
       transaction,
       [faucetKeypair],
-      { 
+      {
         commitment: 'confirmed',
-        maxRetries: 3
+        maxRetries: 5
       }
     );
 
@@ -138,9 +152,48 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Reward API error:', error);
+
+    // Provide specific error messages based on error type
+    let errorMessage = 'Failed to send reward';
+    let statusCode = 500;
+
+    if (error.message) {
+      const msg = error.message.toLowerCase();
+
+      // Network/connection errors
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('timeout')) {
+        errorMessage = 'Network error: Unable to connect to Solana network. Please try again.';
+        statusCode = 503;
+      }
+      // Transaction errors
+      else if (msg.includes('transaction') || msg.includes('blockhash')) {
+        errorMessage = 'Transaction failed: Unable to process blockchain transaction. Please try again.';
+        statusCode = 500;
+      }
+      // Balance errors
+      else if (msg.includes('insufficient') || msg.includes('balance')) {
+        errorMessage = 'Insufficient balance: Faucet does not have enough tokens or SOL for transaction fees.';
+        statusCode = 400;
+      }
+      // Invalid address
+      else if (msg.includes('invalid') && msg.includes('address')) {
+        errorMessage = 'Invalid wallet address provided.';
+        statusCode = 400;
+      }
+      // Token account errors
+      else if (msg.includes('token account')) {
+        errorMessage = 'Token account error: Unable to create or access token account.';
+        statusCode = 500;
+      }
+      // Generic fallback with actual error
+      else {
+        errorMessage = `Reward error: ${error.message}`;
+      }
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Failed to send reward' },
-      { status: 500 }
+      { error: errorMessage },
+      { status: statusCode }
     );
   }
 }

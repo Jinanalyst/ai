@@ -137,8 +137,22 @@ export default function ChatInterface() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to get AI response`);
+        let errorMessage = `HTTP ${response.status}: Failed to get AI response`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, try to read as text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage} - ${errorText.substring(0, 200)}`;
+            }
+          } catch {
+            // Use default error message if text reading also fails
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
