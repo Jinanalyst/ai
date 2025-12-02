@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
 
-const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,75 +15,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!HUGGINGFACE_API_KEY) {
+    if (!ANTHROPIC_API_KEY) {
       return NextResponse.json(
         { error: 'AI API key not configured' },
         { status: 500 }
       );
     }
 
-    // Build conversation prompt for Hugging Face
-    let prompt = 'You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.\n\n';
-    
-    // Add history
-    history.forEach((msg: { role: string; content: string }) => {
-      if (msg.role === 'user') {
-        prompt += `User: ${msg.content}\n`;
-      } else if (msg.role === 'assistant') {
-        prompt += `Assistant: ${msg.content}\n`;
-      }
-    });
-    
-    // Add current message
-    prompt += `User: ${message}\nAssistant:`;
+    // Build messages array for Anthropic API
+    const messages = [
+      ...history,
+      { role: 'user', content: message }
+    ];
 
-    const response = await fetch(HUGGINGFACE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.7,
-          return_full_text: false,
-        },
-      }),
+    const response = await client.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      system: 'You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.',
+      messages: messages,
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Hugging Face API error:', errorData);
-      let errorMessage = 'Failed to get AI response';
-      try {
-        const parsedError = JSON.parse(errorData);
-        errorMessage = parsedError.error || parsedError.message || errorMessage;
-      } catch {
-        errorMessage = errorData || errorMessage;
-      }
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: response.status || 500 }
-      );
-    }
-
-    const data = await response.json();
-    
-    // Handle Hugging Face response format
+    // Extract the response text
     let reply = 'No response received';
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      reply = data[0].generated_text.trim();
-    } else if (data.generated_text) {
-      reply = data.generated_text.trim();
-    } else if (typeof data === 'string') {
-      reply = data.trim();
+    if (response.content && response.content.length > 0) {
+      const content = response.content[0];
+      if ('text' in content) {
+        reply = content.text.trim();
+      }
     }
 
     return NextResponse.json({ reply });
   } catch (error) {
     console.error('Chat API error:', error);
+
+    // Provide better error messages for common API errors
+    if (error instanceof Anthropic.APIError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status || 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
