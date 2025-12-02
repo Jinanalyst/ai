@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { loadChatHistory, saveMessage } from '@/lib/supabase';
 
 interface Message {
   id: string;
@@ -25,6 +26,30 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load chat history when wallet connects
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!publicKey) {
+        setMessages([]);
+        return;
+      }
+
+      try {
+        const history = await loadChatHistory(publicKey.toString());
+        const formattedMessages: Message[] = history.map((msg) => ({
+          id: msg.id || Date.now().toString(),
+          role: msg.role,
+          content: msg.content,
+        }));
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+      }
+    };
+
+    loadHistory();
+  }, [publicKey]);
 
   const sendReward = async (): Promise<string | null> => {
     if (!publicKey) return null;
@@ -83,6 +108,17 @@ export default function ChatInterface() {
       const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
 
+      // Save user message to Supabase
+      try {
+        await saveMessage({
+          wallet_address: publicKey.toString(),
+          role: 'user',
+          content: currentInput,
+        });
+      } catch (error) {
+        console.error('Failed to save user message:', error);
+      }
+
       // Get AI response
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -113,6 +149,17 @@ export default function ChatInterface() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Save AI response to Supabase
+      try {
+        await saveMessage({
+          wallet_address: publicKey.toString(),
+          role: 'assistant',
+          content: data.reply || 'No response received',
+        });
+      } catch (error) {
+        console.error('Failed to save AI response:', error);
+      }
     } catch (error: any) {
       console.error('Error:', error);
       const errorMessage: Message = {
