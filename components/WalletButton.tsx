@@ -5,6 +5,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
+import { processMainnetPayment, verifyPayment } from '@/lib/payment';
 
 export default function WalletButton() {
   const { connected, publicKey, disconnect } = useWallet();
@@ -12,6 +13,9 @@ export default function WalletButton() {
   const { setVisible } = useWalletModal();
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [paymentVerified, setPaymentVerified] = useState(false);
 
   const fetchBalance = async () => {
     if (!publicKey || !connection) return;
@@ -26,6 +30,50 @@ export default function WalletButton() {
     }
   };
 
+  // Process mainnet payment on wallet connection
+  useEffect(() => {
+    const processPayment = async () => {
+      if (!connected || !publicKey) return;
+
+      setPaymentProcessing(true);
+      setPaymentStatus('Processing mainnet payment...');
+
+      try {
+        const result = await processMainnetPayment(
+          publicKey.toString(),
+          `wallet-connect-${publicKey.toString().substring(0, 8)}`
+        );
+
+        if (result.success && result.signature) {
+          setPaymentStatus('Verifying payment...');
+
+          // Verify payment after a short delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          const verification = await verifyPayment(result.signature, publicKey.toString());
+          if (verification.verified) {
+            setPaymentVerified(true);
+            setPaymentStatus('Payment confirmed! Chat is now enabled.');
+          } else {
+            setPaymentStatus('Payment processed. Verification pending...');
+          }
+        } else {
+          setPaymentStatus(`Payment pending. Memo: ${result.signature}`);
+        }
+      } catch (error: any) {
+        console.error('Payment processing error:', error);
+        setPaymentStatus('Payment processing initiated.');
+      } finally {
+        setPaymentProcessing(false);
+      }
+    };
+
+    if (connected && publicKey) {
+      processPayment();
+    }
+  }, [connected, publicKey]);
+
+  // Fetch balance periodically
   useEffect(() => {
     if (connected && publicKey) {
       fetchBalance();
@@ -68,6 +116,15 @@ export default function WalletButton() {
             {loading ? 'Loading...' : balance !== null ? `${balance.toFixed(4)} SOL` : '—'}
           </p>
         </div>
+        {paymentStatus && (
+          <div className={`p-3 rounded-lg text-sm ${
+            paymentVerified ? 'bg-green-100 text-green-800' :
+            paymentProcessing ? 'bg-blue-100 text-blue-800' :
+            'bg-yellow-100 text-yellow-800'
+          }`}>
+            {paymentStatus}
+          </div>
+        )}
       </div>
     );
   }
