@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { loadChatHistory, saveMessage } from '@/lib/supabase';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { loadChatHistory, saveMessage, getUserCredits, type UserCredits } from '@/lib/supabase';
 
 interface Message {
   id: string;
@@ -12,11 +13,15 @@ interface Message {
 }
 
 export default function ChatInterface() {
-  const { publicKey } = useWallet();
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [rewardLoading, setRewardLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [credits, setCredits] = useState<UserCredits | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -27,15 +32,17 @@ export default function ChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  // Load chat history when wallet connects
+  // Load chat history and credits when wallet connects
   useEffect(() => {
-    const loadHistory = async () => {
+    const loadData = async () => {
       if (!publicKey) {
         setMessages([]);
+        setCredits(null);
         return;
       }
 
       try {
+        // Load chat history
         const history = await loadChatHistory(publicKey.toString());
         const formattedMessages: Message[] = history.map((msg) => ({
           id: msg.id || Date.now().toString(),
@@ -43,12 +50,33 @@ export default function ChatInterface() {
           content: msg.content,
         }));
         setMessages(formattedMessages);
+
+        // Load credits
+        const userCredits = await getUserCredits(publicKey.toString());
+        setCredits(userCredits);
       } catch (error) {
-        console.error('Failed to load chat history:', error);
+        console.error('Failed to load data:', error);
       }
     };
 
-    loadHistory();
+    loadData();
+  }, [publicKey]);
+
+  // Refresh credits periodically
+  useEffect(() => {
+    if (!publicKey) return;
+
+    const refreshCredits = async () => {
+      try {
+        const userCredits = await getUserCredits(publicKey.toString());
+        setCredits(userCredits);
+      } catch (error) {
+        console.error('Failed to refresh credits:', error);
+      }
+    };
+
+    const interval = setInterval(refreshCredits, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
   }, [publicKey]);
 
   const sendReward = async (): Promise<string | null> => {
@@ -78,6 +106,73 @@ export default function ChatInterface() {
       return null;
     } finally {
       setRewardLoading(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!publicKey || !sendTransaction) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    const paymentReceiverWallet = process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_WALLET;
+    if (!paymentReceiverWallet) {
+      alert('Payment receiver wallet not configured');
+      return;
+    }
+
+    try {
+      setPaymentLoading(true);
+
+      // Create transaction to send 0.3 SOL
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(paymentReceiverWallet),
+          lamports: 0.3 * LAMPORTS_PER_SOL,
+        })
+      );
+
+      // Get latest blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Send transaction
+      const signature = await sendTransaction(transaction, connection);
+
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      // Verify payment on backend
+      const response = await fetch('/api/payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionSignature: signature,
+          walletAddress: publicKey.toString(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Payment verification failed');
+      }
+
+      // Refresh credits
+      const userCredits = await getUserCredits(publicKey.toString());
+      setCredits(userCredits);
+
+      alert(`Success! ${data.messagesAdded} messages added to your account.`);
+      setShowPaymentModal(false);
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      alert(`Payment failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -127,6 +222,7 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           message: currentInput,
+          walletAddress: publicKey.toString(),
           history: updatedMessages
             .filter((msg) => msg.role !== 'assistant' || !msg.content.startsWith('Error:'))
             .map((msg) => ({
@@ -138,18 +234,30 @@ export default function ChatInterface() {
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: Failed to get AI response`;
+        let errorCode = '';
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
+          errorCode = errorData.code || '';
+
+          // Handle insufficient credits
+          if (errorCode === 'INSUFFICIENT_CREDITS' || response.status === 402) {
+            setShowPaymentModal(true);
+            throw new Error('Insufficient message credits. Please purchase more messages to continue.');
+          }
         } catch (parseError) {
           // If JSON parsing fails, try to read as text
-          try {
-            const errorText = await response.text();
-            if (errorText) {
-              errorMessage = `${errorMessage} - ${errorText.substring(0, 200)}`;
+          if (!(parseError instanceof Error && parseError.message.includes('Insufficient message credits'))) {
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = `${errorMessage} - ${errorText.substring(0, 200)}`;
+              }
+            } catch {
+              // Use default error message if text reading also fails
             }
-          } catch {
-            // Use default error message if text reading also fails
+          } else {
+            throw parseError;
           }
         }
         throw new Error(errorMessage);
@@ -174,6 +282,14 @@ export default function ChatInterface() {
       } catch (error) {
         console.error('Failed to save AI response:', error);
       }
+
+      // Refresh credits after successful message
+      try {
+        const userCredits = await getUserCredits(publicKey.toString());
+        setCredits(userCredits);
+      } catch (error) {
+        console.error('Failed to refresh credits:', error);
+      }
     } catch (error: any) {
       console.error('Error:', error);
       const errorMessage: Message = {
@@ -189,10 +305,30 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-[600px]">
+      {/* Credits Header */}
+      {publicKey && (
+        <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 flex justify-between items-center">
+          <div>
+            <p className="text-sm font-medium text-gray-700">
+              Messages Remaining: <span className="text-blue-600 font-bold">{credits?.messages_remaining || 0}</span>
+            </p>
+            {credits && credits.messages_remaining === 0 && (
+              <p className="text-xs text-red-600 mt-1">Purchase more messages to continue chatting</p>
+            )}
+          </div>
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Buy 500 Messages
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-gray-50 rounded-lg">
         {messages.length === 0 && !loading && (
           <div className="flex items-center justify-center h-full text-gray-500">
-            <p>Start a conversation! You&apos;ll earn CHAT token for each message.</p>
+            <p>Start a conversation! You&apos;ll earn CHAT tokens for each message.</p>
           </div>
         )}
 
@@ -266,6 +402,57 @@ export default function ChatInterface() {
           Send
         </button>
       </form>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold mb-4">Purchase Messages</h2>
+            <div className="mb-6">
+              <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                <p className="text-lg font-semibold text-blue-900">500 Messages</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">0.3 SOL</p>
+              </div>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  500 AI chat messages
+                </li>
+                <li className="flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Powered by Claude AI
+                </li>
+                <li className="flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Earn CHAT token rewards
+                </li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                disabled={paymentLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePayment}
+                disabled={paymentLoading}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {paymentLoading ? 'Processing...' : 'Pay 0.3 SOL'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
