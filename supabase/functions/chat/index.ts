@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,15 +7,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const HUGGINGFACE_API_KEY = Deno.env.get("HUGGINGFACE_API_KEY") || "";
-const HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") || "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";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 interface ChatRequest {
   message: string;
+  conversation_id?: string | null;
+  message_history?: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
 }
 
 interface ChatResponse {
   reply: string;
+  message_id?: string;
+  conversation_id?: string;
   error?: string;
 }
 
@@ -34,7 +42,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { message } = (await req.json()) as ChatRequest;
+    const authHeader = req.headers.get("Authorization");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader || "" } },
+    });
+
+    const { message, conversation_id, message_history = [] } = (await req.json()) as ChatRequest;
 
     if (!message || typeof message !== "string") {
       return new Response(
@@ -43,28 +58,40 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Build prompt for Hugging Face
-    const prompt = `You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.\n\nUser: ${message}\nAssistant:`;
+    // Get user ID from auth
+    const { data: { user } } = await supabase.auth.getUser();
 
-    const response = await fetch(HUGGINGFACE_API_URL, {
+    // Build message history for context
+    const messages = [
+      {
+        role: "system",
+        content: "You are a helpful, friendly AI assistant. Keep responses concise and clear. Avoid overly long explanations.",
+      },
+      ...message_history,
+      {
+        role: "user",
+        content: message,
+      },
+    ];
+
+    // Call Groq API
+    const response = await fetch(GROQ_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${HUGGINGFACE_API_KEY}`,
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.7,
-          return_full_text: false,
-        },
+        model: "mixtral-8x7b-32768",
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("Hugging Face API error:", errorData);
+      console.error("Groq API error:", errorData);
       return new Response(
         JSON.stringify({ error: "Error: Unable to reach the AI server." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -72,18 +99,56 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
-    
-    // Handle Hugging Face response format
-    let reply = "No response";
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      reply = data[0].generated_text.trim();
-    } else if (data.generated_text) {
-      reply = data.generated_text.trim();
-    } else if (typeof data === "string") {
-      reply = data.trim();
+    const reply = data.choices?.[0]?.message?.content || "No response";
+
+    // Store messages in database if conversation_id is provided
+    let userMessageId: string | undefined;
+    let assistantMessageId: string | undefined;
+
+    if (conversation_id) {
+      try {
+        // Store user message
+        const { data: userMsg, error: userError } = await supabase
+          .from("chat_messages")
+          .insert({
+            role: "user",
+            content: message,
+            conversation_id,
+            user_id: user?.id || null,
+          })
+          .select()
+          .single();
+
+        if (!userError && userMsg) {
+          userMessageId = userMsg.id;
+        }
+
+        // Store assistant message
+        const { data: assistantMsg, error: assistantError } = await supabase
+          .from("chat_messages")
+          .insert({
+            role: "assistant",
+            content: reply,
+            conversation_id,
+            user_id: null,
+          })
+          .select()
+          .single();
+
+        if (!assistantError && assistantMsg) {
+          assistantMessageId = assistantMsg.id;
+        }
+      } catch (dbError) {
+        console.error("Error storing messages:", dbError);
+        // Continue even if database storage fails
+      }
     }
 
-    const result: ChatResponse = { reply };
+    const result: ChatResponse = {
+      reply,
+      message_id: assistantMessageId,
+      conversation_id: conversation_id || undefined,
+    };
 
     return new Response(JSON.stringify(result), {
       headers: {
